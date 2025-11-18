@@ -1,40 +1,98 @@
 import 'package:location/location.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+class LocationData {
+  final double latitude;
+  final double longitude;
+  final double? accuracy;
+  final DateTime timestamp;
+
+  LocationData({
+    required this.latitude,
+    required this.longitude,
+    this.accuracy,
+    required this.timestamp,
+  });
+}
 
 class LocationHandler {
   Location location = Location();
+  bool _isInitialized = false;
   bool _serviceEnabled = false;
   PermissionStatus _permissionGranted = PermissionStatus.denied;
 
-  /// بررسی و درخواست مجوزهای موقعیت مکانی
-  Future<bool> _checkLocationPermission() async {
-    _serviceEnabled = await location.serviceEnabled();
-    if (!_serviceEnabled) {
-      _serviceEnabled = await location.requestService();
+  /// مقداردهی اولیه هندلر
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+    
+    try {
+      // بررسی سرویس موقعیت‌یابی
+      _serviceEnabled = await location.serviceEnabled();
       if (!_serviceEnabled) {
-        throw Exception('سرویس‌های موقعیت‌یابی غیرفعال هستند');
+        _serviceEnabled = await location.requestService();
+        if (!_serviceEnabled) {
+          throw Exception('سرویس موقعیت‌یابی دستگاه غیرفعال است');
+        }
       }
-    }
 
-    _permissionGranted = await location.hasPermission();
-    if (_permissionGranted == PermissionStatus.denied) {
-      _permissionGranted = await location.requestPermission();
-      if (_permissionGranted != PermissionStatus.granted) {
-        throw Exception('دسترسی به موقعیت مکانی رد شد');
+      // بررسی و درخواست مجوز
+      _permissionGranted = await location.hasPermission();
+      if (_permissionGranted == PermissionStatus.denied) {
+        _permissionGranted = await location.requestPermission();
+        if (_permissionGranted != PermissionStatus.granted) {
+          throw Exception('مجوز دسترسی به موقعیت مکانی رد شد');
+        }
       }
-    }
 
-    return _permissionGranted == PermissionStatus.granted;
+      if (_permissionGranted == PermissionStatus.deniedForever) {
+        throw Exception(
+          'دسترسی به موقعیت مکانی برای همیشه مسدود شده است. '
+          'لطفاً از طریق تنظیمات دستگاه مجوز را فعال کنید'
+        );
+      }
+
+      _isInitialized = true;
+      print('📍 Location handler initialized successfully');
+      
+    } catch (e) {
+      print('Location initialization error: $e');
+      rethrow;
+    }
   }
 
-  /// دریافت موقعیت مکانی فعلی با دقت بالا
+  /// دریافت موقعیت مکانی فعلی
   Future<LocationData> getCurrentLocation() async {
-    await _checkLocationPermission();
+    if (!_isInitialized) {
+      await initialize();
+    }
 
-    return await location.getLocation();
-  }
+    try {
+      // دریافت موقعیت با تنظیمات بهینه
+      final locationData = await location.getLocation();
+      
+      // بررسی اعتبار داده‌های دریافتی
+      if (locationData.latitude == null || locationData.longitude == null) {
+        throw Exception('داده‌های موقعیت معتبر نیستند');
+      }
 
-  /// دریافت موقعیت‌های زنده
-  Stream<LocationData> getLocationStream() {
-    return location.onLocationChanged;
-  }
-}
+      return LocationData(
+        latitude: locationData.latitude!,
+        longitude: locationData.longitude!,
+        accuracy: locationData.accuracy,
+        timestamp: DateTime.now(),
+      );
+      
+    } catch (e) {
+      print('Get location error: $e');
+      
+      if (e.toString().contains('PERMISSION_DENIED')) {
+        throw Exception('دسترسی به موقعیت مکانی رد شد');
+      } else if (e.toString().contains('SERVICE_DISABLED')) {
+        throw Exception('سرویس موقعیت‌یابی غیرفعال است');
+      } else if (e.toString().contains('TIMEOUT')) {
+        throw Exception('زمان دریافت موقعیت به پایان رسید');
+      } else {
+        throw Exception('خطا در دریافت موقعیت: $e');
+      }
+    }
+ 
