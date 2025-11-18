@@ -1,5 +1,5 @@
-name: othello_online
-description: بازی آنلاین اوتللو 6x6
+name: flutter_geo_chat
+description: چت مکانی با Flutter WebView
 
 publish_to: 'none'
 
@@ -11,8 +11,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  webview_flutter: ^4.0.0
-  url_launcher: ^6.1.11
+  webview_flutter: ^4.4.2
+  permission_handler: ^11.0.0
+  geolocator: ^10.0.0
+  url_launcher: ^6.1.0
 
 dev_dependencies:
   flutter_test:
