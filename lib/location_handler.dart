@@ -1,54 +1,40 @@
-import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:location/location.dart';
 
 class LocationHandler {
+  Location location = Location();
+  bool _serviceEnabled = false;
+  PermissionStatus _permissionGranted = PermissionStatus.denied;
+
   /// بررسی و درخواست مجوزهای موقعیت مکانی
   Future<bool> _checkLocationPermission() async {
-    // بررسی وضعیت مجوز
-    LocationPermission permission = await Geolocator.checkPermission();
-    
-    if (permission == LocationPermission.denied) {
-      // درخواست مجوز
-      permission = await Geolocator.requestPermission();
-      
-      if (permission == LocationPermission.denied) {
+    _serviceEnabled = await location.serviceEnabled();
+    if (!_serviceEnabled) {
+      _serviceEnabled = await location.requestService();
+      if (!_serviceEnabled) {
+        throw Exception('سرویس‌های موقعیت‌یابی غیرفعال هستند');
+      }
+    }
+
+    _permissionGranted = await location.hasPermission();
+    if (_permissionGranted == PermissionStatus.denied) {
+      _permissionGranted = await location.requestPermission();
+      if (_permissionGranted != PermissionStatus.granted) {
         throw Exception('دسترسی به موقعیت مکانی رد شد');
       }
     }
-    
-    if (permission == LocationPermission.deniedForever) {
-      throw Exception('دسترسی به موقعیت مکانی برای همیشه مسدود شده است. لطفاً از طریق تنظیمات دستگاه مجوز را فعال کنید');
-    }
-    
-    return permission == LocationPermission.whileInUse || 
-           permission == LocationPermission.always;
+
+    return _permissionGranted == PermissionStatus.granted;
   }
 
   /// دریافت موقعیت مکانی فعلی با دقت بالا
-  Future<Position> getCurrentLocation() async {
-    // بررسی سرویس‌های موقعیت‌یابی
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw Exception('سرویس‌های موقعیت‌یابی غیرفعال هستند');
-    }
-
-    // بررسی مجوزها
+  Future<LocationData> getCurrentLocation() async {
     await _checkLocationPermission();
 
-    // دریافت موقعیت با دقت بالا
-    return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.best,
-      timeLimit: const Duration(seconds: 15),
-    );
+    return await location.getLocation();
   }
 
-  /// دریافت موقعیت‌های زنده (برای ویژگی‌های آینده)
-  Stream<Position> getLocationStream() {
-    return Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 10, // هر 10 متر آپدیت شود
-      ),
-    );
+  /// دریافت موقعیت‌های زنده
+  Stream<LocationData> getLocationStream() {
+    return location.onLocationChanged;
   }
 }
