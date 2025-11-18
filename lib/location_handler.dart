@@ -95,4 +95,44 @@ class LocationHandler {
         throw Exception('خطا در دریافت موقعیت: $e');
       }
     }
- 
+  }
+
+  /// شروع دریافت موقعیت‌های زنده
+  Stream<LocationData> getLocationStream() {
+    return location.onLocationChanged.map((data) {
+      return LocationData(
+        latitude: data.latitude ?? 0,
+        longitude: data.longitude ?? 0,
+        accuracy: data.accuracy,
+        timestamp: DateTime.now(),
+      );
+    });
+  }
+
+  /// بررسی وضعیت سرویس موقعیت‌یابی
+  Future<bool> checkServiceStatus() async {
+    _serviceEnabled = await location.serviceEnabled();
+    return _serviceEnabled;
+  }
+
+  /// بررسی وضعیت مجوزها
+  Future<PermissionStatus> checkPermissionStatus() async {
+    _permissionGranted = await location.hasPermission();
+    return _permissionGranted;
+  }
+
+  /// باز کردن تنظیمات برنامه برای تغییر مجوزها
+  Future<void> openAppSettings() async {
+    await openAppSettings();
+  }
+
+  /// دریافت وضعیت فعلی هندلر
+  Map<String, dynamic> getStatus() {
+    return {
+      'initialized': _isInitialized,
+      'serviceEnabled': _serviceEnabled,
+      'permissionGranted': _permissionGranted == PermissionStatus.granted,
+      'permissionStatus': _permissionGranted.toString(),
+    };
+  }
+}
